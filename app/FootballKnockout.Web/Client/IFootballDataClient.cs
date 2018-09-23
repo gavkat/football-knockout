@@ -8,6 +8,9 @@ namespace FootballKnockout.Clients{
     public interface IFootballDataClient
     {
         [Get("/v2/competitions/{compCode}/matches")]
-        Task<MatchesResponse> GetMatches(int compCode, int season);
+        Task<Matches> GetMatches(string compCode, int season);
+
+        [Get("/v2/competitions/{compCode}/teams")]
+        Task<Teams> GetTeams(string compCode, int season);
     }
 }

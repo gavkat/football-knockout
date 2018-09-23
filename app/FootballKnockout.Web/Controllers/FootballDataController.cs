@@ -20,9 +20,16 @@ namespace FootballKnockout.Controllers
 
         // GET api/footballData/matches
         [HttpGet("matches")]
-        public async Task<ActionResult<MatchesResponse>> Get()
+        public async Task<ActionResult<Matches>> GetMatches()
         {
-            return await _footballDataClient.GetMatches(2021, 2017);
+            return await _footballDataClient.GetMatches("PL", 2017);
+        }
+
+        // GET api/footballData/teams
+        [HttpGet("teams")]
+        public async Task<ActionResult<Teams>> GetTeams()
+        {
+            return await _footballDataClient.GetTeams("PL", 2017);
         }
     }
 }
