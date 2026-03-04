@@ -40,9 +40,9 @@ function ScoreLine({
     scoreClass = 'text-epl-green'
   } else if (isWinner && match.isPending) {
     // Tentative leader – result not yet decided
-    rowClass = 'bg-white/10 ring-1 ring-white/20'
-    nameClass = 'text-white/70'
-    scoreClass = 'text-white/70'
+    rowClass = 'bg-amber-500/15 ring-1 ring-amber-500/40'
+    nameClass = 'text-amber-300'
+    scoreClass = 'text-amber-300'
   } else if (isLoser) {
     // Confirmed loser
     rowClass = 'bg-white/3 opacity-50'
@@ -85,7 +85,7 @@ function LegScore({ leg, label, team1Id }: { leg: ApiMatch; label: string; team1
 /** Placeholder for a leg that hasn't been played yet */
 function PendingLeg({ label }: { label: string }) {
   return (
-    <span className="text-white/30 text-xs font-mono italic">
+    <span className="text-amber-400/50 text-xs font-mono italic">
       {label}: –
     </span>
   )
@@ -132,8 +132,8 @@ export default function BracketMatch({ match, label }: Props) {
 
         {/* Pending notice */}
         {match.isPending && bothTeamsKnown && (
-          <div className="px-3 py-1 bg-white/5 border-t border-white/10">
-            <p className="text-white/50 text-xs text-center">{pendingLabel}</p>
+          <div className="px-3 py-1 bg-amber-500/8 border-t border-amber-500/20">
+            <p className="text-amber-400/70 text-xs text-center">{pendingLabel}</p>
           </div>
         )}
 

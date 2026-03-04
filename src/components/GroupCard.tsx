@@ -57,7 +57,7 @@ export default function GroupCard({ group }: Props) {
                     ? 'bg-epl-green text-epl-purple'
                     : 'bg-white/20 text-white'
               } else if (qualifies && !isConfirmed) {
-                badgeClass = 'bg-white/20 text-white/60'
+                badgeClass = 'bg-amber-500/70 text-white'
               } else if (!qualifies && isConfirmed) {
                 badgeClass = 'bg-white/5 text-white/40'
               } else {
@@ -92,7 +92,7 @@ export default function GroupCard({ group }: Props) {
                       <span className="font-medium truncate">{row.team.shortName}</span>
                       <div className="ml-auto flex items-center gap-1">
                         {qualifies && !isConfirmed && (
-                          <span className="text-white/40 text-xs" title="Qualification pending">
+                          <span className="text-amber-400/70 text-xs" title="Qualification pending">
                             ~
                           </span>
                         )}
@@ -116,7 +116,7 @@ export default function GroupCard({ group }: Props) {
 
         {/* Pending legend */}
         {group.confirmedPositions.length < 4 && (
-          <p className="text-white/30 text-xs mt-2 pb-1">
+          <p className="text-amber-400/60 text-xs mt-2 pb-1">
             ~ Qualification pending · fixtures still to be played
           </p>
         )}
