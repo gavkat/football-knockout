@@ -67,9 +67,12 @@ export interface KnockoutMatch {
   round: 'qf' | 'sf' | 'final'
   team1: Team | null
   team2: Team | null
-  actualMatch: ApiMatch | null
+  leg1: ApiMatch | null        // first leg – team1 at home
+  leg2: ApiMatch | null        // second leg – team2 at home
+  team1Agg: number
+  team2Agg: number
   winner: Team | null
-  drawAwayAdvances: boolean
+  awayGoalsDecided: boolean    // true when aggregate was level and away goals decided
 }
 
 export interface Tournament {

@@ -15,7 +15,7 @@ export default function TournamentView({ tournament }: Props) {
       <section>
         <SectionHeader
           title="Group Stage"
-          subtitle="Top 16 teams seeded into 4 groups · top 2 from each group advance"
+          subtitle="Top 16 teams seeded into 4 groups · home &amp; away fixtures count · top 2 from each group advance"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {groups.map((g) => (
@@ -28,7 +28,7 @@ export default function TournamentView({ tournament }: Props) {
       <section>
         <SectionHeader
           title="Knockout Stage"
-          subtitle="Draw on the score = away team advances · match used is first fixture between the two clubs"
+          subtitle="2-legged ties · aggregate score decides · away goals used if level · both Premier League fixtures used"
         />
         <div className="bg-white/3 border border-white/8 rounded-2xl p-4">
           <KnockoutBracket

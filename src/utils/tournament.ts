@@ -20,46 +20,86 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-/** Return the first finished match played between two teams, chronologically. */
-function findMatch(
+/**
+ * Return the first finished match where homeId is the home side and awayId is
+ * the away side, in chronological order.
+ */
+function findHomeMatch(
   allMatches: ApiMatch[],
-  teamAId: number,
-  teamBId: number,
+  homeId: number,
+  awayId: number,
 ): ApiMatch | null {
-  const candidates = allMatches
-    .filter(
-      (m) =>
-        m.status === 'FINISHED' &&
-        m.score.fullTime.home !== null &&
-        ((m.homeTeam.id === teamAId && m.awayTeam.id === teamBId) ||
-          (m.homeTeam.id === teamBId && m.awayTeam.id === teamAId)),
-    )
-    .sort(
-      (a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime(),
-    )
-  return candidates[0] ?? null
+  return (
+    allMatches
+      .filter(
+        (m) =>
+          m.status === 'FINISHED' &&
+          m.score.fullTime.home !== null &&
+          m.homeTeam.id === homeId &&
+          m.awayTeam.id === awayId,
+      )
+      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())[0] ?? null
+  )
 }
 
 /**
- * Determine the winner of a knockout match.
- * In case of a draw the *actual* away team in the match advances.
+ * Determine the winner of a 2-legged knockout tie on aggregate.
+ * leg1 is expected to have team1 at home; leg2 has team2 at home.
+ * If aggregate is level the away-goals rule is applied; if still level team2
+ * advances (as the conventionally "away" side).
  */
-function knockoutWinner(match: ApiMatch, team1: Team, team2: Team): { winner: Team; drawAwayAdvances: boolean } {
-  const h = match.score.fullTime.home ?? 0
-  const a = match.score.fullTime.away ?? 0
-  const draw = h === a
+function twoLegWinner(
+  leg1: ApiMatch | null,
+  leg2: ApiMatch | null,
+  team1: Team,
+  team2: Team,
+): { winner: Team; team1Agg: number; team2Agg: number; awayGoalsDecided: boolean } {
+  let t1Goals = 0
+  let t2Goals = 0
+  let t1Away = 0
+  let t2Away = 0
 
-  let winnerId: number
-  if (h > a) {
-    winnerId = match.homeTeam.id
-  } else if (a > h) {
-    winnerId = match.awayTeam.id
-  } else {
-    winnerId = match.awayTeam.id // away team advances on draw
+  if (leg1) {
+    const h = leg1.score.fullTime.home ?? 0
+    const a = leg1.score.fullTime.away ?? 0
+    if (leg1.homeTeam.id === team1.id) {
+      t1Goals += h; t2Goals += a; t2Away += a
+    } else {
+      t2Goals += h; t1Goals += a; t1Away += a
+    }
   }
 
-  const winner = winnerId === team1.id ? team1 : team2
-  return { winner, drawAwayAdvances: draw }
+  if (leg2) {
+    const h = leg2.score.fullTime.home ?? 0
+    const a = leg2.score.fullTime.away ?? 0
+    if (leg2.homeTeam.id === team2.id) {
+      t2Goals += h; t1Goals += a; t1Away += a
+    } else {
+      t1Goals += h; t2Goals += a; t2Away += a
+    }
+  }
+
+  let winner: Team
+  let awayGoalsDecided = false
+
+  if (t1Goals > t2Goals) {
+    winner = team1
+  } else if (t2Goals > t1Goals) {
+    winner = team2
+  } else {
+    // Level on aggregate – apply away goals
+    awayGoalsDecided = true
+    if (t1Away > t2Away) {
+      winner = team1
+    } else if (t2Away > t1Away) {
+      winner = team2
+    } else {
+      // Truly level – team2 advances as tiebreaker
+      winner = team2
+    }
+  }
+
+  return { winner, team1Agg: t1Goals, team2Agg: t2Goals, awayGoalsDecided }
 }
 
 // ─── group standings ─────────────────────────────────────────────────────────
@@ -121,16 +161,17 @@ export function simulateTournament(
 
   const groupNames: GroupName[] = ['A', 'B', 'C', 'D']
 
-  // Build groups
+  // Build groups – collect both home and away fixtures for every pair
   const groups: Group[] = groupNames.map((name, i) => {
     const teams: Team[] = [pot1[i], pot2[i], pot3[i], pot4[i]]
 
-    // Collect all intra-group matches (first meeting of each pair)
     const matches: ApiMatch[] = []
     for (let x = 0; x < teams.length; x++) {
       for (let y = x + 1; y < teams.length; y++) {
-        const m = findMatch(allMatches, teams[x].id, teams[y].id)
-        if (m) matches.push(m)
+        const leg1 = findHomeMatch(allMatches, teams[x].id, teams[y].id)
+        const leg2 = findHomeMatch(allMatches, teams[y].id, teams[x].id)
+        if (leg1) matches.push(leg1)
+        if (leg2) matches.push(leg2)
       }
     }
 
@@ -152,13 +193,22 @@ export function simulateTournament(
   ]
 
   const quarterFinals: KnockoutMatch[] = qfPairings.map(([t1, t2], i) => {
-    const actualMatch = t1 && t2 ? findMatch(allMatches, t1.id, t2.id) : null
+    let leg1: ApiMatch | null = null
+    let leg2: ApiMatch | null = null
     let winner: Team | null = null
-    let drawAwayAdvances = false
-    if (t1 && t2 && actualMatch) {
-      ;({ winner, drawAwayAdvances } = knockoutWinner(actualMatch, t1, t2))
+    let team1Agg = 0
+    let team2Agg = 0
+    let awayGoalsDecided = false
+
+    if (t1 && t2) {
+      leg1 = findHomeMatch(allMatches, t1.id, t2.id)
+      leg2 = findHomeMatch(allMatches, t2.id, t1.id)
+      if (leg1 || leg2) {
+        ;({ winner, team1Agg, team2Agg, awayGoalsDecided } = twoLegWinner(leg1, leg2, t1, t2))
+      }
     }
-    return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, actualMatch, winner, drawAwayAdvances }
+
+    return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided }
   })
 
   // Semifinals: SF1 = QF1 winner vs QF2 winner, SF2 = QF3 winner vs QF4 winner
@@ -168,22 +218,40 @@ export function simulateTournament(
   ]
 
   const semiFinals: KnockoutMatch[] = sfPairings.map(([t1, t2], i) => {
-    const actualMatch = t1 && t2 ? findMatch(allMatches, t1.id, t2.id) : null
+    let leg1: ApiMatch | null = null
+    let leg2: ApiMatch | null = null
     let winner: Team | null = null
-    let drawAwayAdvances = false
-    if (t1 && t2 && actualMatch) {
-      ;({ winner, drawAwayAdvances } = knockoutWinner(actualMatch, t1, t2))
+    let team1Agg = 0
+    let team2Agg = 0
+    let awayGoalsDecided = false
+
+    if (t1 && t2) {
+      leg1 = findHomeMatch(allMatches, t1.id, t2.id)
+      leg2 = findHomeMatch(allMatches, t2.id, t1.id)
+      if (leg1 || leg2) {
+        ;({ winner, team1Agg, team2Agg, awayGoalsDecided } = twoLegWinner(leg1, leg2, t1, t2))
+      }
     }
-    return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, actualMatch, winner, drawAwayAdvances }
+
+    return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided }
   })
 
-  // Final
+  // Final (2-legged)
   const [ft1, ft2] = [semiFinals[0].winner, semiFinals[1].winner]
-  const finalMatch = ft1 && ft2 ? findMatch(allMatches, ft1.id, ft2.id) : null
+  let finalLeg1: ApiMatch | null = null
+  let finalLeg2: ApiMatch | null = null
   let finalWinner: Team | null = null
-  let finalDrawAway = false
-  if (ft1 && ft2 && finalMatch) {
-    ;({ winner: finalWinner, drawAwayAdvances: finalDrawAway } = knockoutWinner(finalMatch, ft1, ft2))
+  let finalT1Agg = 0
+  let finalT2Agg = 0
+  let finalAwayGoals = false
+
+  if (ft1 && ft2) {
+    finalLeg1 = findHomeMatch(allMatches, ft1.id, ft2.id)
+    finalLeg2 = findHomeMatch(allMatches, ft2.id, ft1.id)
+    if (finalLeg1 || finalLeg2) {
+      ;({ winner: finalWinner, team1Agg: finalT1Agg, team2Agg: finalT2Agg, awayGoalsDecided: finalAwayGoals } =
+        twoLegWinner(finalLeg1, finalLeg2, ft1, ft2))
+    }
   }
 
   const final: KnockoutMatch = {
@@ -191,9 +259,12 @@ export function simulateTournament(
     round: 'final',
     team1: ft1,
     team2: ft2,
-    actualMatch: finalMatch,
+    leg1: finalLeg1,
+    leg2: finalLeg2,
+    team1Agg: finalT1Agg,
+    team2Agg: finalT2Agg,
     winner: finalWinner,
-    drawAwayAdvances: finalDrawAway,
+    awayGoalsDecided: finalAwayGoals,
   }
 
   return { season, groups, quarterFinals, semiFinals, final, champion: finalWinner }
