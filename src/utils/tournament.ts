@@ -43,6 +43,27 @@ function findHomeMatch(
 }
 
 /**
+ * Return the first scheduled (not yet played) match where homeId is the home
+ * side and awayId is the away side, in chronological order.
+ */
+function findScheduledMatch(
+  allMatches: ApiMatch[],
+  homeId: number,
+  awayId: number,
+): ApiMatch | null {
+  return (
+    allMatches
+      .filter(
+        (m) =>
+          (m.status === 'SCHEDULED' || m.status === 'TIMED') &&
+          m.homeTeam.id === homeId &&
+          m.awayTeam.id === awayId,
+      )
+      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())[0] ?? null
+  )
+}
+
+/**
  * Determine the winner of a 2-legged knockout tie on aggregate.
  * leg1 is expected to have team1 at home; leg2 has team2 at home.
  * If aggregate is level the away-goals rule is applied; if still level team2
@@ -226,20 +247,33 @@ export function simulateTournament(
   const groups: Group[] = groupNames.map((name, i) => {
     const teams: Team[] = [pot1[i], pot2[i], pot3[i], pot4[i]]
 
-    const matches: ApiMatch[] = []
+    const finishedMatches: ApiMatch[] = []
+    const scheduledMatches: ApiMatch[] = []
     for (let x = 0; x < teams.length; x++) {
       for (let y = x + 1; y < teams.length; y++) {
         const leg1 = findHomeMatch(allMatches, teams[x].id, teams[y].id)
         const leg2 = findHomeMatch(allMatches, teams[y].id, teams[x].id)
-        if (leg1) matches.push(leg1)
-        if (leg2) matches.push(leg2)
+        if (leg1) finishedMatches.push(leg1)
+        else {
+          const sched = findScheduledMatch(allMatches, teams[x].id, teams[y].id)
+          if (sched) scheduledMatches.push(sched)
+        }
+        if (leg2) finishedMatches.push(leg2)
+        else {
+          const sched = findScheduledMatch(allMatches, teams[y].id, teams[x].id)
+          if (sched) scheduledMatches.push(sched)
+        }
       }
     }
 
-    const standings = buildGroupStandings(teams, matches)
+    // Combine and sort chronologically for display; standings use finished only
+    const matches: ApiMatch[] = [...finishedMatches, ...scheduledMatches]
+      .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+
+    const standings = buildGroupStandings(teams, finishedMatches)
     const qualified: [Team, Team] | null =
       standings.length >= 2 ? [standings[0].team, standings[1].team] : null
-    const confirmedPositions = computeConfirmedPositions(standings, matches)
+    const confirmedPositions = computeConfirmedPositions(standings, finishedMatches)
 
     return { name, teams, matches, standings, qualified, confirmedPositions }
   })
@@ -257,6 +291,8 @@ export function simulateTournament(
   const quarterFinals: KnockoutMatch[] = qfPairings.map(([t1, t2], i) => {
     let leg1: ApiMatch | null = null
     let leg2: ApiMatch | null = null
+    let scheduledLeg1: ApiMatch | null = null
+    let scheduledLeg2: ApiMatch | null = null
     let winner: Team | null = null
     let team1Agg = 0
     let team2Agg = 0
@@ -265,13 +301,15 @@ export function simulateTournament(
     if (t1 && t2) {
       leg1 = findHomeMatch(allMatches, t1.id, t2.id)
       leg2 = findHomeMatch(allMatches, t2.id, t1.id)
+      if (!leg1) scheduledLeg1 = findScheduledMatch(allMatches, t1.id, t2.id)
+      if (!leg2) scheduledLeg2 = findScheduledMatch(allMatches, t2.id, t1.id)
       if (leg1 || leg2) {
         ;({ winner, team1Agg, team2Agg, awayGoalsDecided } = twoLegWinner(leg1, leg2, t1, t2))
       }
     }
 
     const isPending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
-    return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
+    return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, leg1, leg2, scheduledLeg1, scheduledLeg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
   })
 
   // Semifinals: SF1 = QF1 winner vs QF2 winner, SF2 = QF3 winner vs QF4 winner
@@ -283,6 +321,8 @@ export function simulateTournament(
   const semiFinals: KnockoutMatch[] = sfPairings.map(([t1, t2], i) => {
     let leg1: ApiMatch | null = null
     let leg2: ApiMatch | null = null
+    let scheduledLeg1: ApiMatch | null = null
+    let scheduledLeg2: ApiMatch | null = null
     let winner: Team | null = null
     let team1Agg = 0
     let team2Agg = 0
@@ -291,19 +331,23 @@ export function simulateTournament(
     if (t1 && t2) {
       leg1 = findHomeMatch(allMatches, t1.id, t2.id)
       leg2 = findHomeMatch(allMatches, t2.id, t1.id)
+      if (!leg1) scheduledLeg1 = findScheduledMatch(allMatches, t1.id, t2.id)
+      if (!leg2) scheduledLeg2 = findScheduledMatch(allMatches, t2.id, t1.id)
       if (leg1 || leg2) {
         ;({ winner, team1Agg, team2Agg, awayGoalsDecided } = twoLegWinner(leg1, leg2, t1, t2))
       }
     }
 
     const isPending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
-    return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
+    return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, leg1, leg2, scheduledLeg1, scheduledLeg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
   })
 
   // Final (2-legged)
   const [ft1, ft2] = [semiFinals[0].winner, semiFinals[1].winner]
   let finalLeg1: ApiMatch | null = null
   let finalLeg2: ApiMatch | null = null
+  let finalScheduledLeg1: ApiMatch | null = null
+  let finalScheduledLeg2: ApiMatch | null = null
   let finalWinner: Team | null = null
   let finalT1Agg = 0
   let finalT2Agg = 0
@@ -312,6 +356,8 @@ export function simulateTournament(
   if (ft1 && ft2) {
     finalLeg1 = findHomeMatch(allMatches, ft1.id, ft2.id)
     finalLeg2 = findHomeMatch(allMatches, ft2.id, ft1.id)
+    if (!finalLeg1) finalScheduledLeg1 = findScheduledMatch(allMatches, ft1.id, ft2.id)
+    if (!finalLeg2) finalScheduledLeg2 = findScheduledMatch(allMatches, ft2.id, ft1.id)
     if (finalLeg1 || finalLeg2) {
       ;({ winner: finalWinner, team1Agg: finalT1Agg, team2Agg: finalT2Agg, awayGoalsDecided: finalAwayGoals } =
         twoLegWinner(finalLeg1, finalLeg2, ft1, ft2))
@@ -325,6 +371,8 @@ export function simulateTournament(
     team2: ft2,
     leg1: finalLeg1,
     leg2: finalLeg2,
+    scheduledLeg1: finalScheduledLeg1,
+    scheduledLeg2: finalScheduledLeg2,
     team1Agg: finalT1Agg,
     team2Agg: finalT2Agg,
     winner: finalWinner,

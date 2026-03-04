@@ -71,7 +71,7 @@ export async function fetchMatches(season: number): Promise<ApiMatch[]> {
   if (!apiKey) throw new Error('NO_API_KEY')
 
   const data = await fetchWithCache<MatchesResponse>(
-    `${BASE_URL}/competitions/PL/matches?season=${season}&status=FINISHED`,
+    `${BASE_URL}/competitions/PL/matches?season=${season}`,
     apiKey,
   )
 
