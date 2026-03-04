@@ -30,7 +30,7 @@ export default function App() {
         )
       }
       const label = AVAILABLE_SEASONS.find((s) => s.year === season)?.label ?? `${season}`
-      const result = simulateTournament(standings, matches, label)
+      const result = simulateTournament(standings, matches, label, drawSeed === 0)
       setTournament(result)
       setLoadState('success')
     } catch (e: unknown) {
@@ -66,12 +66,26 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Draw mode badge */}
+            {tournament && (
+              <span
+                className={`hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                  tournament.isOfficialDraw
+                    ? 'bg-epl-green/15 border-epl-green/40 text-epl-green'
+                    : 'bg-amber-400/15 border-amber-400/40 text-amber-300'
+                }`}
+              >
+                {tournament.isOfficialDraw ? '🔒 Official Draw' : '🎲 Custom Draw'}
+              </span>
+            )}
+
             {/* Season selector */}
             <select
               value={season}
               onChange={(e) => {
                 setSeason(Number(e.target.value) as typeof season)
                 setTournament(null)
+                setDrawSeed(0)
               }}
               className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-epl-green/60 cursor-pointer"
             >
@@ -82,17 +96,30 @@ export default function App() {
               ))}
             </select>
 
-            {/* Re-draw button */}
+            {/* Reshuffle / Official Draw buttons */}
+            {tournament && !tournament.isOfficialDraw && (
+              <button
+                onClick={() => {
+                  setTournament(null)
+                  setDrawSeed(0)
+                }}
+                disabled={loadState === 'loading'}
+                title="Restore the official seeded draw"
+                className="flex items-center gap-2 bg-epl-green/20 hover:bg-epl-green/30 disabled:opacity-50 border border-epl-green/40 rounded-lg px-3 py-2 text-epl-green text-sm font-medium transition-colors"
+              >
+                🔒 Official Draw
+              </button>
+            )}
             <button
               onClick={() => {
                 setTournament(null)
                 setDrawSeed((n) => n + 1)
               }}
               disabled={loadState === 'loading'}
-              title="Re-draw groups randomly"
+              title="Randomly reshuffle the groups"
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 border border-white/20 rounded-lg px-3 py-2 text-white text-sm font-medium transition-colors"
             >
-              🎲 Re-draw
+              🎲 Reshuffle
             </button>
 
             {/* Reset API key */}

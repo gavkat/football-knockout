@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function TournamentView({ tournament }: Props) {
-  const { groups, quarterFinals, semiFinals, final, champion } = tournament
+  const { groups, quarterFinals, semiFinals, final, champion, isOfficialDraw } = tournament
 
   return (
     <div className="space-y-12">
@@ -15,7 +15,11 @@ export default function TournamentView({ tournament }: Props) {
       <section>
         <SectionHeader
           title="Group Stage"
-          subtitle="Top 16 teams seeded into 4 groups · home &amp; away fixtures count · top 2 from each group advance"
+          subtitle={
+            isOfficialDraw
+              ? 'Fixed seeding: champion paired with lowest qualifier · same draw for all visitors · top 2 advance'
+              : 'Custom random draw · top 2 from each group advance'
+          }
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {groups.map((g) => (
