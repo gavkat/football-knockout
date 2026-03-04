@@ -32,7 +32,7 @@ export default function TournamentView({ tournament }: Props) {
       <section>
         <SectionHeader
           title="Knockout Stage"
-          subtitle="Draw on the score = away team advances · match used is first fixture between the two clubs"
+          subtitle="2-legged ties · aggregate score decides · away goals used if level · both Premier League fixtures used"
         />
         <div className="bg-white/3 border border-white/8 rounded-2xl p-4">
           <KnockoutBracket

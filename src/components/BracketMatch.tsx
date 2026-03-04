@@ -1,4 +1,4 @@
-import type { KnockoutMatch } from '../types'
+import type { ApiMatch, KnockoutMatch } from '../types'
 import TeamCrest from './TeamCrest'
 
 interface Props {
@@ -25,18 +25,8 @@ function ScoreLine({
 
   const isWinner = match.winner?.id === team.id
   const isLoser = match.winner !== null && match.winner.id !== team.id
-
-  // Work out actual score from the perspective of team1/team2
-  let scoreDisplay = '–'
-  if (match.actualMatch) {
-    const m = match.actualMatch
-    const isHome = m.homeTeam.id === team.id
-    const hg = m.score.fullTime.home
-    const ag = m.score.fullTime.away
-    if (hg !== null && ag !== null) {
-      scoreDisplay = isHome ? `${hg}` : `${ag}`
-    }
-  }
+  const agg = teamKey === 'team1' ? match.team1Agg : match.team2Agg
+  const hasData = match.leg1 !== null || match.leg2 !== null
 
   return (
     <div
@@ -61,16 +51,29 @@ function ScoreLine({
           isWinner ? 'text-epl-green' : 'text-white/60'
         }`}
       >
-        {scoreDisplay}
+        {hasData ? agg : '–'}
       </span>
     </div>
   )
 }
 
+/** Shows one leg's score from team1's perspective: team1goals–team2goals */
+function LegScore({ leg, label, team1Id }: { leg: ApiMatch; label: string; team1Id: number }) {
+  const hg = leg.score.fullTime.home ?? 0
+  const ag = leg.score.fullTime.away ?? 0
+  const isTeam1Home = leg.homeTeam.id === team1Id
+  const t1g = isTeam1Home ? hg : ag
+  const t2g = isTeam1Home ? ag : hg
+  return (
+    <span className="text-white/40 text-xs font-mono">
+      {label}: {t1g}–{t2g}
+    </span>
+  )
+}
+
 export default function BracketMatch({ match, label }: Props) {
-  const hasDraw =
-    match.actualMatch &&
-    match.actualMatch.score.fullTime.home === match.actualMatch.score.fullTime.away
+  const hasAnyMatch = match.leg1 !== null || match.leg2 !== null
+  const isLevelOnAgg = match.winner !== null && match.team1Agg === match.team2Agg
 
   return (
     <div className="w-52">
@@ -82,13 +85,28 @@ export default function BracketMatch({ match, label }: Props) {
           <ScoreLine match={match} teamKey="team1" />
           <ScoreLine match={match} teamKey="team2" />
         </div>
-        {hasDraw && match.winner && (
-          <div className="px-3 py-1.5 bg-amber-500/10 border-t border-amber-500/20">
+
+        {/* Per-leg scores */}
+        {hasAnyMatch && match.team1 && (
+          <div className="px-3 py-1.5 border-t border-white/10 flex gap-3 justify-center">
+            {match.leg1 && (
+              <LegScore leg={match.leg1} label="H" team1Id={match.team1.id} />
+            )}
+            {match.leg2 && (
+              <LegScore leg={match.leg2} label="A" team1Id={match.team1.id} />
+            )}
+          </div>
+        )}
+
+        {/* Tiebreaker notice */}
+        {isLevelOnAgg && match.winner && (
+          <div className="px-3 py-1 bg-amber-500/10 border-t border-amber-500/20">
             <p className="text-amber-400 text-xs text-center">
-              Draw · {match.winner.tla} advances (away)
+              {match.awayGoalsDecided ? 'Away goals' : 'Level'} · {match.winner.tla} advances
             </p>
           </div>
         )}
+
         {!match.team1 && !match.team2 && (
           <div className="px-3 py-1 text-center">
             <p className="text-white/20 text-xs italic">Awaiting teams</p>

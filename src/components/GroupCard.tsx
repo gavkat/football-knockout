@@ -77,7 +77,7 @@ export default function GroupCard({ group }: Props) {
 
       {/* Group matches */}
       <div className="border-t border-white/10 px-4 py-3 space-y-2">
-        <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Matches used</p>
+        <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Fixtures (home &amp; away)</p>
         {group.matches.length === 0 ? (
           <p className="text-white/30 text-xs italic">No match data found</p>
         ) : (
