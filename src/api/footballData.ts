@@ -1,6 +1,6 @@
 import type { ApiMatch, StandingEntry } from '../types'
 
-const BASE_URL = 'https://api.football-data.org/v4'
+const BASE_URL = '/fd-api'
 
 interface StandingsResponse {
   standings: {
@@ -27,9 +27,14 @@ async function fetchWithCache<T>(url: string, apiKey: string): Promise<T> {
   const cached = sessionStorage.getItem(cacheKey)
   if (cached) return JSON.parse(cached) as T
 
-  const res = await fetch(url, {
-    headers: { 'X-Auth-Token': apiKey },
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { 'X-Auth-Token': apiKey },
+    })
+  } catch {
+    throw new Error('Network error: could not reach the football-data.org API. Check your internet connection or restart the dev server.')
+  }
 
   if (res.status === 429) {
     throw new Error('Rate limit hit. Please wait a minute and try again.')
