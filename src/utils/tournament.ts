@@ -105,6 +105,7 @@ export function simulateTournament(
   standingEntries: StandingEntry[],
   allMatches: ApiMatch[],
   season: string,
+  isOfficialDraw: boolean = true,
 ): Tournament {
   // Top 16 teams
   const top16: Team[] = standingEntries.slice(0, 16).map((e) => ({
@@ -114,10 +115,22 @@ export function simulateTournament(
   }))
 
   // Seeded draw: pot1=1-4, pot2=5-8, pot3=9-12, pot4=13-16
-  const pot1 = shuffle(top16.slice(0, 4))
-  const pot2 = shuffle(top16.slice(4, 8))
-  const pot3 = shuffle(top16.slice(8, 12))
-  const pot4 = shuffle(top16.slice(12, 16))
+  // Official draw uses snake seeding so rank 1 (champion) is paired with rank 16
+  // (lowest qualifier) in Group A, rank 2 with rank 15 in Group B, etc.
+  // Every visitor sees the same groups for a given season.
+  // Reshuffle uses a random draw within pots for personal exploration.
+  let pot1: Team[], pot2: Team[], pot3: Team[], pot4: Team[]
+  if (isOfficialDraw) {
+    pot1 = top16.slice(0, 4)                      // ranks  1-4  → A,B,C,D
+    pot2 = top16.slice(4, 8)                      // ranks  5-8  → A,B,C,D
+    pot3 = [...top16.slice(8, 12)].reverse()      // ranks  9-12 → D,C,B,A (snake)
+    pot4 = [...top16.slice(12, 16)].reverse()     // ranks 13-16 → D,C,B,A (rank 16 → Group A)
+  } else {
+    pot1 = shuffle(top16.slice(0, 4))
+    pot2 = shuffle(top16.slice(4, 8))
+    pot3 = shuffle(top16.slice(8, 12))
+    pot4 = shuffle(top16.slice(12, 16))
+  }
 
   const groupNames: GroupName[] = ['A', 'B', 'C', 'D']
 
@@ -196,5 +209,5 @@ export function simulateTournament(
     drawAwayAdvances: finalDrawAway,
   }
 
-  return { season, groups, quarterFinals, semiFinals, final, champion: finalWinner }
+  return { season, groups, quarterFinals, semiFinals, final, champion: finalWinner, isOfficialDraw }
 }
