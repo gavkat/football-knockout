@@ -92,8 +92,10 @@ export type SeasonYear =
   | 2022
   | 2023
   | 2024
+  | 2025
 
 export const AVAILABLE_SEASONS: { year: SeasonYear; label: string }[] = [
+  { year: 2025, label: '2025/26' },
   { year: 2024, label: '2024/25' },
   { year: 2023, label: '2023/24' },
   { year: 2022, label: '2022/23' },
