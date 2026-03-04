@@ -6,8 +6,13 @@ interface Props {
 }
 
 function formatScore(home: number | null, away: number | null): string {
-  if (home === null || away === null) return '? - ?'
   return `${home} – ${away}`
+}
+
+function formatDate(utcDate: string): string {
+  const d = new Date(utcDate)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`
 }
 
 export default function GroupCard({ group }: Props) {
@@ -93,7 +98,7 @@ export default function GroupCard({ group }: Props) {
                   {m.homeTeam.tla}
                 </span>
                 <span className="bg-white/10 rounded px-2 py-0.5 font-mono font-bold text-white min-w-[4rem] text-center">
-                  {formatScore(hg, ag)}
+                  {hg === null || ag === null ? formatDate(m.utcDate) : formatScore(hg, ag)}
                 </span>
                 <span className={`flex-1 text-left truncate ${awayWin ? 'text-white font-semibold' : 'text-white/50'}`}>
                   {m.awayTeam.tla}
