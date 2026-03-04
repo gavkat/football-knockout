@@ -254,6 +254,14 @@ export function simulateTournament(
     [groupD.qualified?.[0] ?? null, groupC.qualified?.[1] ?? null],
   ]
 
+  // Whether each team's group position is confirmed (pending = not confirmed)
+  const qfTeamsPending: [boolean, boolean][] = [
+    [!groupA.confirmedPositions.includes(1), !groupB.confirmedPositions.includes(2)],
+    [!groupC.confirmedPositions.includes(1), !groupD.confirmedPositions.includes(2)],
+    [!groupB.confirmedPositions.includes(1), !groupA.confirmedPositions.includes(2)],
+    [!groupD.confirmedPositions.includes(1), !groupC.confirmedPositions.includes(2)],
+  ]
+
   const quarterFinals: KnockoutMatch[] = qfPairings.map(([t1, t2], i) => {
     let leg1: ApiMatch | null = null
     let leg2: ApiMatch | null = null
@@ -270,7 +278,10 @@ export function simulateTournament(
       }
     }
 
-    const isPending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
+    const [t1GroupPending, t2GroupPending] = qfTeamsPending[i]
+    const teamsArePending = (t1 !== null && t1GroupPending) || (t2 !== null && t2GroupPending)
+    const legsArePending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
+    const isPending = teamsArePending || legsArePending
     return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
   })
 
@@ -296,7 +307,12 @@ export function simulateTournament(
       }
     }
 
-    const isPending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
+    // SF teams are pending if the QF they came from is still pending
+    const teamsArePending =
+      (t1 !== null && quarterFinals[i * 2].isPending) ||
+      (t2 !== null && quarterFinals[i * 2 + 1].isPending)
+    const legsArePending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
+    const isPending = teamsArePending || legsArePending
     return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
   })
 
@@ -318,6 +334,13 @@ export function simulateTournament(
     }
   }
 
+  // Final teams are pending if the SF they came from is still pending
+  const finalTeamsArePending =
+    (ft1 !== null && semiFinals[0].isPending) ||
+    (ft2 !== null && semiFinals[1].isPending)
+  const finalLegsArePending = ft1 !== null && ft2 !== null && (finalLeg1 === null || finalLeg2 === null)
+  const finalIsPending = finalTeamsArePending || finalLegsArePending
+
   const final: KnockoutMatch = {
     id: 'final',
     round: 'final',
@@ -329,8 +352,11 @@ export function simulateTournament(
     team2Agg: finalT2Agg,
     winner: finalWinner,
     awayGoalsDecided: finalAwayGoals,
-    isPending: ft1 !== null && ft2 !== null && (finalLeg1 === null || finalLeg2 === null),
+    isPending: finalIsPending,
   }
 
-  return { season, groups, quarterFinals, semiFinals, final, champion: finalWinner, isOfficialDraw }
+  // Champion can only be declared when both final teams are confirmed and both legs played
+  const champion = finalIsPending ? null : finalWinner
+
+  return { season, groups, quarterFinals, semiFinals, final, champion, isOfficialDraw }
 }
