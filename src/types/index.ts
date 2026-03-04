@@ -79,6 +79,7 @@ export interface Tournament {
   semiFinals: KnockoutMatch[]
   final: KnockoutMatch | null
   champion: Team | null
+  isOfficialDraw: boolean
 }
 
 export type SeasonYear =
