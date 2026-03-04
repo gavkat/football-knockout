@@ -24,33 +24,44 @@ function ScoreLine({
   }
 
   const isWinner = match.winner?.id === team.id
-  const isLoser = match.winner !== null && match.winner.id !== team.id
+  // Only dim the loser when the result is confirmed (both legs played)
+  const isLoser = !match.isPending && match.winner !== null && match.winner.id !== team.id
   const agg = teamKey === 'team1' ? match.team1Agg : match.team2Agg
   const hasData = match.leg1 !== null || match.leg2 !== null
 
+  let rowClass: string
+  let scoreClass: string
+  let nameClass: string
+
+  if (isWinner && !match.isPending) {
+    // Confirmed winner
+    rowClass = 'bg-epl-green/20 ring-1 ring-epl-green/50'
+    nameClass = 'text-epl-green'
+    scoreClass = 'text-epl-green'
+  } else if (isWinner && match.isPending) {
+    // Tentative leader – result not yet decided
+    rowClass = 'bg-amber-500/15 ring-1 ring-amber-500/40'
+    nameClass = 'text-amber-300'
+    scoreClass = 'text-amber-300'
+  } else if (isLoser) {
+    // Confirmed loser
+    rowClass = 'bg-white/3 opacity-50'
+    nameClass = 'text-white'
+    scoreClass = 'text-white/60'
+  } else {
+    // Neutral (pending – no result yet, or this team is not the leader)
+    rowClass = 'bg-white/8'
+    nameClass = 'text-white'
+    scoreClass = 'text-white/60'
+  }
+
   return (
-    <div
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
-        isWinner
-          ? 'bg-epl-green/20 ring-1 ring-epl-green/50'
-          : isLoser
-            ? 'bg-white/3 opacity-50'
-            : 'bg-white/8'
-      }`}
-    >
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${rowClass}`}>
       <TeamCrest crest={team.crest} name={team.name} size="sm" />
-      <span
-        className={`text-sm font-semibold flex-1 truncate ${
-          isWinner ? 'text-epl-green' : 'text-white'
-        }`}
-      >
+      <span className={`text-sm font-semibold flex-1 truncate ${nameClass}`}>
         {team.shortName}
       </span>
-      <span
-        className={`text-sm font-mono font-bold min-w-[1.25rem] text-right ${
-          isWinner ? 'text-epl-green' : 'text-white/60'
-        }`}
-      >
+      <span className={`text-sm font-mono font-bold min-w-[1.25rem] text-right ${scoreClass}`}>
         {hasData ? agg : '–'}
       </span>
     </div>
@@ -71,9 +82,26 @@ function LegScore({ leg, label, team1Id }: { leg: ApiMatch; label: string; team1
   )
 }
 
+/** Placeholder for a leg that hasn't been played yet */
+function PendingLeg({ label }: { label: string }) {
+  return (
+    <span className="text-amber-400/50 text-xs font-mono italic">
+      {label}: –
+    </span>
+  )
+}
+
 export default function BracketMatch({ match, label }: Props) {
   const hasAnyMatch = match.leg1 !== null || match.leg2 !== null
   const isLevelOnAgg = match.winner !== null && match.team1Agg === match.team2Agg
+  const bothTeamsKnown = match.team1 !== null && match.team2 !== null
+
+  // Describe what's still pending for this tie
+  const pendingLegCount = (match.leg1 === null ? 1 : 0) + (match.leg2 === null ? 1 : 0)
+  const pendingLabel =
+    pendingLegCount === 2
+      ? 'Pending · fixtures to be played'
+      : 'Pending · awaiting second leg'
 
   return (
     <div className="w-52">
@@ -86,20 +114,31 @@ export default function BracketMatch({ match, label }: Props) {
           <ScoreLine match={match} teamKey="team2" />
         </div>
 
-        {/* Per-leg scores */}
-        {hasAnyMatch && match.team1 && (
+        {/* Per-leg scores (played legs) + placeholder for pending leg */}
+        {bothTeamsKnown && (hasAnyMatch || match.isPending) && (
           <div className="px-3 py-1.5 border-t border-white/10 flex gap-3 justify-center">
-            {match.leg1 && (
-              <LegScore leg={match.leg1} label="H" team1Id={match.team1.id} />
-            )}
-            {match.leg2 && (
-              <LegScore leg={match.leg2} label="A" team1Id={match.team1.id} />
-            )}
+            {match.leg1 ? (
+              <LegScore leg={match.leg1} label="H" team1Id={match.team1!.id} />
+            ) : match.isPending ? (
+              <PendingLeg label="H" />
+            ) : null}
+            {match.leg2 ? (
+              <LegScore leg={match.leg2} label="A" team1Id={match.team1!.id} />
+            ) : match.isPending ? (
+              <PendingLeg label="A" />
+            ) : null}
           </div>
         )}
 
-        {/* Tiebreaker notice */}
-        {isLevelOnAgg && match.winner && (
+        {/* Pending notice */}
+        {match.isPending && bothTeamsKnown && (
+          <div className="px-3 py-1 bg-amber-500/8 border-t border-amber-500/20">
+            <p className="text-amber-400/70 text-xs text-center">{pendingLabel}</p>
+          </div>
+        )}
+
+        {/* Tiebreaker notice (confirmed result only) */}
+        {!match.isPending && isLevelOnAgg && match.winner && (
           <div className="px-3 py-1 bg-amber-500/10 border-t border-amber-500/20">
             <p className="text-amber-400 text-xs text-center">
               {match.awayGoalsDecided ? 'Away goals' : 'Level'} · {match.winner.tla} advances

@@ -102,6 +102,54 @@ function twoLegWinner(
   return { winner, team1Agg: t1Goals, team2Agg: t2Goals, awayGoalsDecided }
 }
 
+// ─── confirmed positions ──────────────────────────────────────────────────────
+
+/**
+ * Returns the 1-indexed positions (1–4) whose outcome is mathematically certain
+ * given the current standings and finished group matches.
+ *
+ * A team in position ≤ 2 is *confirmed qualified* when no team below can
+ * mathematically reach their points.  A team in position ≥ 3 is *confirmed
+ * eliminated* by the same logic.  Position 1 specifically is confirmed when no
+ * other team can reach the current leader's tally.
+ *
+ * Formula: the best a team can do is win all their remaining group games
+ * (3 pts each).  Each team plays every other group team home AND away = 6
+ * matches total; 4 teams × 3 opponents × 2 legs = 12 group matches total.
+ */
+function computeConfirmedPositions(standings: GroupStanding[], groupMatches: ApiMatch[]): number[] {
+  if (standings.length < 4) return []
+
+  // All group matches played → every position is certain
+  if (groupMatches.length >= 12) return [1, 2, 3, 4]
+
+  const remainingFor = (teamId: number): number =>
+    6 - groupMatches.filter(m => m.homeTeam.id === teamId || m.awayTeam.id === teamId).length
+
+  const [s1, s2, s3, s4] = standings
+  const maxPts = (s: GroupStanding) => s.points + 3 * remainingFor(s.team.id)
+
+  const confirmed = new Set<number>()
+
+  // Position 1 confirmed: no other team can reach s1's current points
+  if (maxPts(s2) < s1.points && maxPts(s3) < s1.points && maxPts(s4) < s1.points) {
+    confirmed.add(1)
+  }
+
+  // Top-2 confirmed: s3 can no longer reach s2's current points
+  if (maxPts(s3) < s2.points) {
+    confirmed.add(2) // s2 confirmed qualified
+    confirmed.add(3) // s3 confirmed eliminated
+  }
+
+  // s4 confirmed eliminated: cannot reach s2's current points
+  if (maxPts(s4) < s2.points) {
+    confirmed.add(4)
+  }
+
+  return [...confirmed].sort((a, b) => a - b)
+}
+
 // ─── group standings ─────────────────────────────────────────────────────────
 
 function buildGroupStandings(teams: Team[], matches: ApiMatch[]): GroupStanding[] {
@@ -191,8 +239,9 @@ export function simulateTournament(
     const standings = buildGroupStandings(teams, matches)
     const qualified: [Team, Team] | null =
       standings.length >= 2 ? [standings[0].team, standings[1].team] : null
+    const confirmedPositions = computeConfirmedPositions(standings, matches)
 
-    return { name, teams, matches, standings, qualified }
+    return { name, teams, matches, standings, qualified, confirmedPositions }
   })
 
   // Quarterfinals
@@ -221,7 +270,8 @@ export function simulateTournament(
       }
     }
 
-    return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided }
+    const isPending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
+    return { id: `qf${i + 1}`, round: 'qf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
   })
 
   // Semifinals: SF1 = QF1 winner vs QF2 winner, SF2 = QF3 winner vs QF4 winner
@@ -246,7 +296,8 @@ export function simulateTournament(
       }
     }
 
-    return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided }
+    const isPending = t1 !== null && t2 !== null && (leg1 === null || leg2 === null)
+    return { id: `sf${i + 1}`, round: 'sf', team1: t1, team2: t2, leg1, leg2, team1Agg, team2Agg, winner, awayGoalsDecided, isPending }
   })
 
   // Final (2-legged)
@@ -278,6 +329,7 @@ export function simulateTournament(
     team2Agg: finalT2Agg,
     winner: finalWinner,
     awayGoalsDecided: finalAwayGoals,
+    isPending: ft1 !== null && ft2 !== null && (finalLeg1 === null || finalLeg2 === null),
   }
 
   return { season, groups, quarterFinals, semiFinals, final, champion: finalWinner, isOfficialDraw }
