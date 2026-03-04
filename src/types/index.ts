@@ -69,8 +69,10 @@ export interface KnockoutMatch {
   round: 'qf' | 'sf' | 'final'
   team1: Team | null
   team2: Team | null
-  leg1: ApiMatch | null        // first leg – team1 at home
-  leg2: ApiMatch | null        // second leg – team2 at home
+  leg1: ApiMatch | null        // first leg – team1 at home (FINISHED)
+  leg2: ApiMatch | null        // second leg – team2 at home (FINISHED)
+  scheduledLeg1: ApiMatch | null  // scheduled (not yet played) first leg
+  scheduledLeg2: ApiMatch | null  // scheduled (not yet played) second leg
   team1Agg: number
   team2Agg: number
   winner: Team | null
