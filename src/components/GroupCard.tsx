@@ -16,6 +16,8 @@ function formatDate(utcDate: string): string {
 }
 
 export default function GroupCard({ group }: Props) {
+  const confirmed = new Set(group.confirmedPositions)
+
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
       {/* Header */}
@@ -39,30 +41,63 @@ export default function GroupCard({ group }: Props) {
           </thead>
           <tbody>
             {group.standings.map((row, idx) => {
-              const qualified = idx < 2
+              const pos = idx + 1
+              const qualifies = pos <= 2
+              const isConfirmed = confirmed.has(pos)
+
+              // Position badge colour
+              // Confirmed qualified: green (1st) / white (2nd)
+              // Pending qualified: amber for both
+              // Confirmed eliminated: dim gray
+              // Pending eliminated: slightly brighter (might still move up)
+              let badgeClass: string
+              if (qualifies && isConfirmed) {
+                badgeClass =
+                  idx === 0
+                    ? 'bg-epl-green text-epl-purple'
+                    : 'bg-white/20 text-white'
+              } else if (qualifies && !isConfirmed) {
+                badgeClass = 'bg-amber-500/70 text-white'
+              } else if (!qualifies && isConfirmed) {
+                badgeClass = 'bg-white/5 text-white/40'
+              } else {
+                // Pending eliminated – slightly less dim, still in contention
+                badgeClass = 'bg-white/10 text-white/50'
+              }
+
+              // Row text: full brightness for qualifying (confirmed or pending),
+              // dimmed for confirmed-out, slightly less dim for pending-out
+              let rowClass: string
+              if (qualifies) {
+                rowClass = 'text-white'
+              } else if (isConfirmed) {
+                rowClass = 'text-white/50'
+              } else {
+                rowClass = 'text-white/60'
+              }
+
               return (
                 <tr
                   key={row.team.id}
-                  className={`${
-                    qualified ? 'text-white' : 'text-white/50'
-                  } border-t border-white/5`}
+                  className={`${rowClass} border-t border-white/5`}
                 >
                   <td className="py-2 pr-2">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                          idx === 0
-                            ? 'bg-epl-green text-epl-purple'
-                            : idx === 1
-                              ? 'bg-white/20 text-white'
-                              : 'bg-white/5 text-white/40'
-                        }`}
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${badgeClass}`}
                       >
-                        {idx + 1}
+                        {pos}
                       </span>
                       <TeamCrest crest={row.team.crest} name={row.team.name} size="sm" />
                       <span className="font-medium truncate">{row.team.shortName}</span>
-                      <span className="text-white/30 text-xs ml-auto">#{row.team.leaguePosition}</span>
+                      <div className="ml-auto flex items-center gap-1">
+                        {qualifies && !isConfirmed && (
+                          <span className="text-amber-400/70 text-xs" title="Qualification pending">
+                            ~
+                          </span>
+                        )}
+                        <span className="text-white/30 text-xs">#{row.team.leaguePosition}</span>
+                      </div>
                     </div>
                   </td>
                   <td className="py-2 text-center px-1">{row.played}</td>
@@ -78,6 +113,13 @@ export default function GroupCard({ group }: Props) {
             })}
           </tbody>
         </table>
+
+        {/* Pending legend */}
+        {group.confirmedPositions.length < 4 && (
+          <p className="text-amber-400/60 text-xs mt-2 pb-1">
+            ~ Qualification pending · fixtures still to be played
+          </p>
+        )}
       </div>
 
       {/* Group matches */}

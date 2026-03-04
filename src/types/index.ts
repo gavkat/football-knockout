@@ -60,6 +60,8 @@ export interface Group {
   matches: ApiMatch[]
   standings: GroupStanding[]
   qualified: [Team, Team] | null // [winner, runner-up]
+  /** Positions (1-indexed) whose outcome is mathematically certain. Unconfirmed positions are pending. */
+  confirmedPositions: number[]
 }
 
 export interface KnockoutMatch {
@@ -73,6 +75,8 @@ export interface KnockoutMatch {
   team2Agg: number
   winner: Team | null
   awayGoalsDecided: boolean    // true when aggregate was level and away goals decided
+  /** True when both teams are known but not all legs have been played – result is tentative. */
+  isPending: boolean
 }
 
 export interface Tournament {
