@@ -1,6 +1,12 @@
 import type { ApiMatch, KnockoutMatch } from '../types'
 import TeamCrest from './TeamCrest'
 
+function formatDate(utcDate: string): string {
+  const d = new Date(utcDate)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`
+}
+
 interface Props {
   match: KnockoutMatch
   label?: string
@@ -82,11 +88,12 @@ function LegScore({ leg, label, team1Id }: { leg: ApiMatch; label: string; team1
   )
 }
 
-/** Placeholder for a leg that hasn't been played yet */
-function PendingLeg({ label }: { label: string }) {
+/** Placeholder for a leg that hasn't been played yet, optionally showing its scheduled date */
+function PendingLeg({ label, scheduledMatch }: { label: string; scheduledMatch?: ApiMatch | null }) {
+  const display = scheduledMatch ? formatDate(scheduledMatch.utcDate) : '–'
   return (
     <span className="text-amber-400/50 text-xs font-mono italic">
-      {label}: –
+      {label}: {display}
     </span>
   )
 }
@@ -120,12 +127,12 @@ export default function BracketMatch({ match, label }: Props) {
             {match.leg1 ? (
               <LegScore leg={match.leg1} label="H" team1Id={match.team1!.id} />
             ) : match.isPending ? (
-              <PendingLeg label="H" />
+              <PendingLeg label="H" scheduledMatch={match.scheduledLeg1} />
             ) : null}
             {match.leg2 ? (
               <LegScore leg={match.leg2} label="A" team1Id={match.team1!.id} />
             ) : match.isPending ? (
-              <PendingLeg label="A" />
+              <PendingLeg label="A" scheduledMatch={match.scheduledLeg2} />
             ) : null}
           </div>
         )}
