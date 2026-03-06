@@ -100,6 +100,18 @@ export default function KnockoutBracket({ quarterFinals, semiFinals, final, cham
                   <p className="text-white/40 text-xs mt-0.5">Champion</p>
                 </div>
               </div>
+            ) : final?.winner ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-500/15 ring-2 ring-amber-500/40 flex items-center justify-center p-1">
+                  <TeamCrest crest={final.winner.crest} name={final.winner.name} size="lg" />
+                </div>
+                <div>
+                  <p className="text-amber-300 font-bold text-sm leading-tight">
+                    {final.winner.shortName}
+                  </p>
+                  <p className="text-amber-400/60 text-xs mt-0.5">Pending</p>
+                </div>
+              </div>
             ) : (
               <div className="text-white/20 text-sm italic text-center">TBD</div>
             )}

@@ -77,7 +77,8 @@ export interface KnockoutMatch {
   team2Agg: number
   winner: Team | null
   awayGoalsDecided: boolean    // true when aggregate was level and away goals decided
-  /** True when both teams are known but not all legs have been played – result is tentative. */
+  /** True when the result is uncertain: either a team's identity is still pending (group position
+   *  not confirmed, or the previous knockout round is pending), or not all legs have been played. */
   isPending: boolean
 }
 
